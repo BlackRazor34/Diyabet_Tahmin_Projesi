@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: diyabet-tahmin-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: diyabet-tahmin-app
+  template:
+    metadata:
+      labels:
+        app: diyabet-tahmin-app
+    spec:
+      containers:
+      - name: diyabet-tahmin-app
+        image: emredevops/diyabet-tahmin-app:latest
+        ports:
+        - containerPort: 8501
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: diyabet-tahmin-app-service
+spec:
+  selector:
+    app: diyabet-tahmin-app
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8501
+  type: LoadBalancer
