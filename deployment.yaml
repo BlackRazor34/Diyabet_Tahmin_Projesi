@@ -15,6 +15,7 @@ spec:
       containers:
       - name: diyabet-tahmin-app
         image: emredevops/diyabet-tahmin-app:latest
+        imagePullPolicy : Always
         ports:
         - containerPort: 8501
 ---
