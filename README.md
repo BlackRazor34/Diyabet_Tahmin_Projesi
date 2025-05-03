@@ -106,7 +106,7 @@ Bu metrikler, modelin hem diyabetli hem de diyabetsiz sınıfları yüksek doğr
 ## 📖 Kullanım
 
 <p align="center">
-  <img src="Pictures\streamlit_web_gorsel.png" alt="Diyabet ve Beslenme" width="600" />
+  <img src="Pictures\güncelweb.png" alt="Diyabet ve Beslenme" width="600" />
 </p>
 
 1. Uygulamayı başlattıktan sonra sol tarafta yer alan formu doldurun.
