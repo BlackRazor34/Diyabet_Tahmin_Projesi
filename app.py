@@ -1,127 +1,240 @@
 import streamlit as st
 import pandas as pd
 import joblib
-import matplotlib.pyplot as plt
-import seaborn as sns
+import numpy as np
 
+# Model ve scaler'ı yükle
+model = joblib.load('diabetes_rf_model.pkl')
+scaler = joblib.load('scaler.pkl')
 
-st.write("Model yükleniyor...")
-try:
-    model = joblib.load('diabetes_rf_model.pkl')
-    scaler = joblib.load('scaler.pkl')
-    st.write("Model ve scaler başarıyla yüklendi.")
-except Exception as e:
-    st.error(f"Model veya scaler yüklenirken hata oluştu: {e}")
-    st.stop()
-
-
-st.title("🩺 Diyabet Tahmin Uygulaması")
-st.write("Bu uygulama, Random Forest modeli kullanarak diyabet riskinizi tahmin eder. Sağlık bilgilerinizi girerek risk durumunuzu öğrenebilirsiniz.")
-
-
-medical_bounds = {
-    'Glucose': (70.0, 200.0),
-    'BloodPressure': (60.0, 90.0),
-    'SkinThickness': (10.0, 40.0),
-    'Insulin': (16.0, 166.0),
-    'BMI': (18.5, 45.0),
-    'Diyabet_Oykusu': (0.0, 1.0),
-    'Pregnancies': (0.0, 10.0),
-    'Age': (21.0, 70.0)
-}
-
-st.sidebar.header("📋 Hasta Bilgilerini Girin")
-st.sidebar.write("Lütfen aşağıdaki bilgileri dikkatle girin. Tıbbi aralıklar otomatik olarak kontrol edilir.")
-pregnancies = st.sidebar.number_input("Gebelik Sayısı (Pregnancies)", min_value=0, max_value=10, value=0, help="Kaç kez hamile kaldınız? (Maksimum 10)")
-glucose = st.sidebar.number_input("Glukoz Seviyesi (mg/dL)", min_value=70.0, max_value=200.0, value=70.0, help="2 saatlik oral glikoz tolerans testindeki plazma glukoz seviyesi.")
-blood_pressure = st.sidebar.number_input("Kan Basıncı (mmHg)", min_value=60.0, max_value=90.0, value=72.0, help="Diyastolik kan basıncı (mmHg).")
-skin_thickness = st.sidebar.number_input("Triceps Deri Kalınlığı (mm)", min_value=10.0, max_value=40.0, value=28.0, help="Triceps deri kalınlığı, obeziteyle ilişkili bir ölçümdür.")
-insulin = st.sidebar.number_input("İnsülin Seviyesi (µU/mL)", min_value=16.0, max_value=166.0, value=20.0, help="2 saatlik serum insülin seviyesi (µU/mL).")
-bmi = st.sidebar.number_input("Vücut Kitle İndeksi (BMI)", min_value=18.5, max_value=45.0, value=31.95, help="Vücut kitle indeksi (kg/m²).")
-diyabet_oykusu = st.sidebar.selectbox("Diyabet Öyküsü (Diyabet_Oykusu)", options=[0, 1], index=0, help="Ailede diyabet öyküsü: 0 (Yok), 1 (Var).")
-age = st.sidebar.number_input("Yaş (Age)", min_value=21, max_value=70, value=29, help="Yaşınız (yıl).")
-
-
-def prepare_input_data(pregnancies, glucose, blood_pressure, skin_thickness, insulin, bmi, diyabet_oykusu, age):
-    data = {
-        'Pregnancies': min(max(pregnancies, medical_bounds['Pregnancies'][0]), medical_bounds['Pregnancies'][1]),
-        'Glucose': min(max(glucose, medical_bounds['Glucose'][0]), medical_bounds['Glucose'][1]),
-        'BloodPressure': min(max(blood_pressure, medical_bounds['BloodPressure'][0]), medical_bounds['BloodPressure'][1]),
-        'SkinThickness': min(max(skin_thickness, medical_bounds['SkinThickness'][0]), medical_bounds['SkinThickness'][1]),
-        'Insulin': min(max(insulin, medical_bounds['Insulin'][0]), medical_bounds['Insulin'][1]),
-        'BMI': min(max(bmi, medical_bounds['BMI'][0]), medical_bounds['BMI'][1]),
-        'Diyabet_Oykusu': min(max(diyabet_oykusu, medical_bounds['Diyabet_Oykusu'][0]), medical_bounds['Diyabet_Oykusu'][1]),
-        'Age': min(max(age, medical_bounds['Age'][0]), medical_bounds['Age'][1])
+# Geniş ekran düzeni ve soft tasarım için CSS
+st.set_page_config(layout="centered")
+st.markdown(
+    """
+    <style>
+    .main {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f9f9f9;
+        border-radius: 5px;
     }
-    if glucose != data['Glucose']:
-        st.warning(f"Glukoz değeri tıbbi aralıklarla sınırlandırıldı: {data['Glucose']}")
-    if insulin != data['Insulin']:
-        st.warning(f"İnsülin değeri tıbbi aralıklarla sınırlandırıldı: {data['Insulin']}")
-    if skin_thickness != data['SkinThickness']:
-        st.warning(f"Deri kalınlığı değeri tıbbi aralıklarla sınırlandırıldı: {data['SkinThickness']}")
-    if pregnancies != data['Pregnancies']:
-        st.warning(f"Gebelik sayısı tıbbi aralıklarla sınırlandırıldı: {data['Pregnancies']}")
-    if age != data['Age']:
-        st.warning(f"Yaş tıbbi aralıklarla sınırlandırıldı: {data['Age']}")
-    input_df = pd.DataFrame([data])
-    input_scaled = scaler.transform(input_df)
-    return pd.DataFrame(input_scaled, columns=input_df.columns)
+    h1 {
+        color: #4a90e2;
+        font-size: 48px;
+        text-align: center;
+        margin-bottom: 15px;
+    }
+    h2 {
+        color: #6abf69;
+        font-size: 36px;
+        text-align: center;
+        margin-top: 25px;
+    }
 
+    /* Input grupları */
+    .input-group {
+        width: 100%;
+        max-width: 400px;
+        margin: 0 auto;
+        text-align: left;
+    }
 
-if st.sidebar.button("Tahmin Yap"):
-    input_data = prepare_input_data(pregnancies, glucose, blood_pressure, skin_thickness, insulin, bmi, diyabet_oykusu, age)
-    prediction_proba = model.predict_proba(input_data)[0]
-    prediction = 1 if prediction_proba[1] >= 0.5 else 0
+    .input-group label {
+        font-size: 22px;
+        color: #d46b9e;
+        font-weight: bold;
+        display: block;
+        margin-bottom: 2px;
+        border-bottom: 2px solid #4a90e2;
+        padding-bottom: 2px;
+    }
 
-   
-    st.header("Tahmin Sonucu")
-    if prediction == 0:
-        st.success("Diyabetsiz (No Diabetes)")
-        st.write("Diyabet riski tespit edilmedi. Sağlıklı yaşam tarzına devam edin! TÜRKDIAB Rehberi'ne göre düzenli egzersiz ve dengeli beslenme önerilir.")
+    .input-group .description {
+        font-size: 16px;
+        color: #5a9bd5;
+        margin-bottom: 2px;
+        display: block;
+    }
+
+    .input-group input {
+        font-size: 18px;
+        padding: 10px;
+        border-radius: 5px;
+        border: 2px solid #4a90e2;
+        background-color: #ffffff;
+        width: 100%;
+        box-sizing: border-box; /* İçerik kutuya sığar */
+    }
+
+    .stButton>button {
+        width: 250px;
+        height: 50px;
+        font-size: 22px;
+        background-color: #4a90e2;
+        color: white;
+        border-radius: 5px;
+        border: none;
+        display: block;
+        margin: 30px auto;
+    }
+
+    .stButton>button:hover {
+        background-color: #357abd;
+    }
+
+    .info-box {
+        background-color: #f0f7fd;
+        padding: 10px;
+        border-radius: 5px;
+        margin-top: 10px;
+        font-size: 18px;
+        color: #5a9bd5;
+        text-align: center;
+    }
+
+    .success-box {
+        background-color: #e8f5e9;
+        padding: 15px;
+        border-radius: 5px;
+        margin-top: 15px;
+        font-size: 24px;
+        color: #2e7d32;
+        text-align: center;
+    }
+
+    .warning-box {
+        background-color: #fce4d6;
+        padding: 15px;
+        border-radius: 5px;
+        margin-top: 15px;
+        font-size: 24px;
+        color: #bf360c;
+        text-align: center;
+    }
+
+    @media (max-width: 600px) {
+        .input-group {
+            max-width: 100%;
+        }
+
+        .input-group label {
+            font-size: 20px;
+        }
+
+        .input-group .description {
+            font-size: 14px;
+        }
+
+        .input-group input {
+            font-size: 16px;
+            padding: 8px;
+        }
+
+        .stButton>button {
+            width: 100%;
+            height: 45px;
+            font-size: 20px;
+        }
+
+        h1 {
+            font-size: 36px;
+        }
+
+        h2 {
+            font-size: 28px;
+        }
+
+        .info-box, .success-box, .warning-box {
+            font-size: 16px;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Başlık ve açıklama
+st.title('Diyabet Tahmin Uygulaması 🩺')
+st.markdown(
+    '<p style="text-align: center; font-size: 24px;">Bu uygulama, Random Forest modeli kullanarak sağlık bilgilerinizi analiz eder ve diyabet riskinizi tahmin eder. Sonuçlar yalnızca genel bir bilgi sunar.</p>',
+    unsafe_allow_html=True
+)
+
+# Diyabet hakkında özet bilgi
+st.markdown(
+    '<div style="text-align: center; font-size: 20px; color: #2e6da4; background-color: #e6f3fa; padding: 15px; border-radius: 5px; margin-bottom: 25px;">'
+    'Diyabet, kan şekerinin yükselmesiyle (hiperglisemi) oluşan kronik bir hastalıktır. Açlık kan şekeri 126 mg/dL üzeri veya toklukta 200 mg/dL üzeri diyabet belirtisi olabilir.'
+    '</div>',
+    unsafe_allow_html=True
+)
+
+# Ana alanda giriş formu (yan yana)
+st.header('Hasta Bilgileri Girişi')
+col1, col2 = st.columns(2)
+
+def render_input_group(label_text, description_text, key_suffix, min_val, max_val, default_val):
+    st.markdown(f"""
+        <div class="input-group">
+            <label>{label_text}</label>
+            <div class="description">{description_text}</div>
+        </div>
+    """, unsafe_allow_html=True)
+    return st.number_input('', min_value=min_val, max_value=max_val, value=default_val, key=key_suffix)
+
+with col1:
+    pregnancies = render_input_group("Gebelik Sayısı", "Gebelik sayınızı girin (0-20).", 'pregnancies', 0, 20, 0)
+    glucose = render_input_group("Açlık Glukoz Seviyesi (mg/dL)", "Sabah aç karnına ölçüm yapın (örneğin, 70-200 mg/dL).", 'glucose', 70.0, 200.0, 90.0)
+    skin_thickness = render_input_group("Triceps Deri Kalınlığı (mm)", "Kolunuzun arka kısmındaki deri kalınlığı (kumpas ile ölçülür).", 'skin_thickness', 0.0, 100.0, 20.0)
+    bmi = render_input_group("Vücut Kitle İndeksi (BMI) (kg/m²)", "Kilonuz (kg) / boyunuzun (m) karesi (18.5-45).", 'bmi', 18.5, 45.0, 25.0)
+
+with col2:
+    blood_pressure = render_input_group("Kan Basıncı (mmHg)", "Diyastolik kan basıncı (örneğin, 60-90 mmHg).", 'blood_pressure', 0.0, 150.0, 70.0)
+    insulin = render_input_group("İnsülin Seviyesi (µU/mL)", "2 saatlik insülin seviyenizi girin (16-166 µU/mL).", 'insulin', 16.0, 166.0, 50.0)
+    diabetes_pedigree = render_input_group("Diyabet Öyküsü (0: Yok, 1: Var)", "Ailenizde diyabet varsa 1, yoksa 0.", 'diabetes_pedigree', 0.0, 1.0, 0.0)
+    age = render_input_group("Yaş (yıl)", "Yaşınızı yıl cinsinden girin (21-70).", 'age', 21, 70, 30)
+
+# Tahmin butonu
+if st.button('Tahmin Et'):
+    # Veriyi hazırlama
+    input_data = np.array([[pregnancies, glucose, blood_pressure, skin_thickness, insulin, bmi, diabetes_pedigree, age]])
+    input_data_scaled = scaler.transform(input_data)
+    # Tahmin yapma
+    prediction = model.predict(input_data_scaled)
+
+    # Sonucu kullanıcı dostu bir şekilde gösterme
+    if prediction[0] == 0:
+        st.markdown('<div class="success-box">Tahmin Sonucu: Diyabet Yok</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="info-box">Diyabet riski düşük görünüyor. Sağlıklı yaşam tarzına devam edin ve düzenli kontrol yaptırın.</div>',
+            unsafe_allow_html=True
+        )
+        st.markdown(
+            '<div class="info-box">'
+            '<b>Uzman Önerileri:</b> Dengeli beslenin: Tam tahıllı gıdalar, sebzeler, meyveler ve sağlıklı yağlar (zeytinyağı gibi) tüketin. Şekerli içecekler ve işlenmiş gıdalardan kaçının. '
+            'Günde 30 dakika yürüyüş veya bisiklet gibi orta düzeyde egzersiz yapın. Sigara ve alkolü bırakın, D vitamini takviyesi alın. Stres için meditasyon veya yoga uygulayın, 7-8 saat uyuyun. '
+            'Yılda bir kan testi ile sağlık kontrolü yaptırın.'
+            '</div>',
+            unsafe_allow_html=True
+        )
     else:
-        st.error("Diyabetli (Diabetes)")
-        st.write("Diyabet riski tespit edildi. Lütfen bir doktora danışın ve düzenli tarama yaptırın. TÜRKDIAB Rehberi'ne göre glukoz seviyenizi kontrol ettirin (APG ≥ 126 mg/dl diyabet).")
+        st.markdown('<div class="warning-box">Tahmin Sonucu: Diyabet Riski Var</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="warning-box">Bu bir model tahminidir, lütfen bir uzmana danışın.</div>',
+            unsafe_allow_html=True
+        )
+        st.markdown(
+            '<div class="info-box">'
+            '<b>Uzman Önerileri:</b> Karbonhidrat alımını azaltın (beyaz ekmek ve tahıllı gıdalardan uzak durun), şekerli içeceklerden kaçının, düzenli yürüyüş yapın (günde 30 dakika), '
+            'stres yönetimi için meditasyon veya yoga uygulayın, D vitamini takviyesi alın ve bir diyetisyen desteğiyle sağlıklı bir yaşam tarzı benimseyin.'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
-    
-    st.subheader("Tahmin Olasılıkları")
-    st.write(f"Diyabetsiz Olasılığı: {prediction_proba[0]:.2f}")
-    st.write(f"Diyabetli Olasılığı: {prediction_proba[1]:.2f}")
-
-   
-    st.subheader("Özelliklerin Önemi (Sıralı Grafik)")
-    feature_importances = {'Insulin': 0.480, 'SkinThickness': 0.141, 'Glucose': 0.137, 'BMI': 0.070, 'Age': 0.067, 'Diyabet_Oykusu': 0.042, 'Pregnancies': 0.031, 'BloodPressure': 0.030}
-    features = list(feature_importances.keys())
-    importances = list(feature_importances.values())
-    fig, ax = plt.subplots(figsize=(4, 3))
-    sns.barplot(x=importances, y=features, ax=ax, palette='viridis')
-    ax.set_title("Feature Importance (Sıralı)")
-    ax.set_xlabel("Importance Score")
-    ax.set_ylabel("")
-    plt.tight_layout()
-    st.pyplot(fig)
-
-
-st.sidebar.header("ℹ️ Uygulama Hakkında")
-st.sidebar.write("""
-Bu uygulama, diyabet riskini tahmin etmek için geliştirilmiştir. Random Forest modeli, Pima Indian kadınlarından toplanan tıbbi verilerle (%95.50 doğruluk oranıyla) eğitilmiştir. Model, aşağıdaki özelliklere dayanır:
-
-- **Gebelik Sayısı**: Daha fazla gebelik, gestasyonel diyabet riskini artırabilir.
-- **Glukoz Seviyesi**: Açlık plazma glukozu, diyabet tanısında kritik bir göstergedir (TÜRKDIAB: ≥ 126 mg/dl diyabet).
-- **Kan Basıncı**: Yüksek tansiyon, diyabetle ilişkilidir (TÜRKDIAB: ≥ 140/90 mmHg risk faktörü).
-- **Triceps Deri Kalınlığı**: Obeziteyle doğrudan ilişkilidir. Triceps bölgesindeki deri kalınlığı, vücuttaki yağ dağılımını gösterir ve diyabet riskini değerlendirmede önemli bir ölçüttür.
-- **İnsülin Seviyesi**: İnsülin direnci, Tip 2 diyabetin erken bir göstergesidir.
-- **BMI**: Vücut kitle indeksi, obeziteyi ölçer (TÜRKDIAB: ≥ 25 kg/m² risk faktörü).
-- **Diyabet Öyküsü**: Ailede diyabet varlığı genetik yatkınlığı gösterir.
-- **Yaş**: 45 yaş üstü bireylerde diyabet riski artar.
-
-**Not**: Bu tahmin bir tanı değildir. Sonuçlarınızı bir doktorla değerlendirin ve TÜRKDIAB Diyabet Tanı ve Tedavi Rehberi 2024’ü inceleyin.
-""")
-
-
-st.sidebar.subheader("📊 Model Performansı")
-st.sidebar.write("**Test Seti Doğruluğu:** 0.9550")
-st.sidebar.write("**Diyabetsiz (Precision/Recall/F1):** 0.97 / 0.94 / 0.95")
-st.sidebar.write("**Diyabetli (Precision/Recall/F1):** 0.94 / 0.97 / 0.96")
-st.sidebar.write("""
-Bu metrikler, modelin hem diyabetli hem de diyabetsiz sınıfları yüksek doğrulukla tahmin ettiğini gösterir. Precision, doğru tahmin oranını; Recall, gerçek pozitiflerin yakalanma oranını; F1-Score ise bu ikisinin dengesini temsil eder.
-""")
+    # Genel bilgilendirme mesajı
+    st.markdown(
+        '<div class="info-box">'
+        '<b>Not:</b> Bu araç teşhis koymaz, yalnızca tahmini bir değerlendirme sunar. Türkiye Diyabet Vakfı Rehberi 2024’e göre, açlık glukoz seviyesi 126 mg/dL üzeri veya BMI 30 üzerindeyse bir uzmana danışılmalıdır.'
+        '</div>',
+        unsafe_allow_html=True
+    )
