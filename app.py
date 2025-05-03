@@ -5,16 +5,16 @@ import numpy as np
 from prometheus_client import Counter, Histogram, start_http_server
 import time
 
-# Prometheus metrikleri
-start_http_server(8000)  # Prometheus metrikleri için 8000 portunda bir HTTP sunucusu başlat
+
+start_http_server(8001)  
 prediction_counter = Counter('prediction_requests_total', 'Total number of prediction requests')
 prediction_duration = Histogram('prediction_duration_seconds', 'Duration of prediction requests in seconds')
 
-# Model ve scaler'ı yükle
+
 model = joblib.load('diabetes_rf_model.pkl')
 scaler = joblib.load('scaler.pkl')
 
-# Geniş ekran düzeni ve soft tasarım için CSS
+
 st.set_page_config(layout="centered")
 st.markdown(
     """
@@ -161,14 +161,14 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Başlık ve açıklama
+
 st.title('Diyabet Tahmin Uygulaması 🩺')
 st.markdown(
     '<p style="text-align: center; font-size: 24px;">Bu uygulama, Random Forest modeli kullanarak sağlık bilgilerinizi analiz eder ve diyabet riskinizi tahmin eder. Sonuçlar yalnızca genel bir bilgi sunar.</p>',
     unsafe_allow_html=True
 )
 
-# Diyabet hakkında özet bilgi
+
 st.markdown(
     '<div style="text-align: center; font-size: 20px; color: #2e6da4; background-color: #e6f3fa; padding: 15px; border-radius: 5px; margin-bottom: 25px;">'
     'Diyabet, kan şekerinin yükselmesiyle (hiperglisemi) oluşan kronik bir hastalıktır. Açlık kan şekeri 126 mg/dL üzeri veya toklukta 200 mg/dL üzeri diyabet belirtisi olabilir.'
@@ -176,7 +176,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Ana alanda giriş formu (yan yana)
+
 st.header('Hasta Bilgileri Girişi')
 col1, col2 = st.columns(2)
 
@@ -201,22 +201,22 @@ with col2:
     diabetes_pedigree = render_input_group("Diyabet Öyküsü (0: Yok, 1: Var)", "Ailenizde diyabet varsa 1, yoksa 0.", 'diabetes_pedigree', 0.0, 1.0, 0.0)
     age = render_input_group("Yaş (yıl)", "Yaşınızı yıl cinsinden girin (21-70).", 'age', 21, 70, 30)
 
-# Tahmin butonu
-if st.button('Tahmin Et'):
-    prediction_counter.inc()  # Tahmin sayısını artır
-    start_time = time.time()  # Tahmin süresini ölçmeye başla
 
-    # Veriyi hazırlama
+if st.button('Tahmin Et'):
+    prediction_counter.inc()  
+    start_time = time.time()  
+
+  
     input_data = np.array([[pregnancies, glucose, blood_pressure, skin_thickness, insulin, bmi, diabetes_pedigree, age]])
     input_data_scaled = scaler.transform(input_data)
-    # Tahmin yapma
+   
     prediction = model.predict(input_data_scaled)
 
-    # Tahmin süresini kaydet
+    
     duration = time.time() - start_time
     prediction_duration.observe(duration)
 
-    # Sonucu kullanıcı dostu bir şekilde gösterme
+
     if prediction[0] == 0:
         st.markdown('<div class="success-box">Tahmin Sonucu: Diyabet Yok</div>', unsafe_allow_html=True)
         st.markdown(
@@ -245,7 +245,7 @@ if st.button('Tahmin Et'):
             unsafe_allow_html=True
         )
 
-    # Genel bilgilendirme mesajı
+    
     st.markdown(
         '<div class="info-box">'
         '<b>Not:</b> Bu araç teşhis koymaz, yalnızca tahmini bir değerlendirme sunar. Türkiye Diyabet Vakfı Rehberi 2024’e göre, açlık glukoz seviyesi 126 mg/dL üzeri veya BMI 30 üzerindeyse bir uzmana danışılmalıdır.'
