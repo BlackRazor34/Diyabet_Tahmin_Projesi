@@ -2,6 +2,13 @@ import streamlit as st
 import pandas as pd
 import joblib
 import numpy as np
+from prometheus_client import Counter, Histogram, start_http_server
+import time
+
+# Prometheus metrikleri
+start_http_server(8000)  # Prometheus metrikleri için 8000 portunda bir HTTP sunucusu başlat
+prediction_counter = Counter('prediction_requests_total', 'Total number of prediction requests')
+prediction_duration = Histogram('prediction_duration_seconds', 'Duration of prediction requests in seconds')
 
 # Model ve scaler'ı yükle
 model = joblib.load('diabetes_rf_model.pkl')
@@ -196,11 +203,18 @@ with col2:
 
 # Tahmin butonu
 if st.button('Tahmin Et'):
+    prediction_counter.inc()  # Tahmin sayısını artır
+    start_time = time.time()  # Tahmin süresini ölçmeye başla
+
     # Veriyi hazırlama
     input_data = np.array([[pregnancies, glucose, blood_pressure, skin_thickness, insulin, bmi, diabetes_pedigree, age]])
     input_data_scaled = scaler.transform(input_data)
     # Tahmin yapma
     prediction = model.predict(input_data_scaled)
+
+    # Tahmin süresini kaydet
+    duration = time.time() - start_time
+    prediction_duration.observe(duration)
 
     # Sonucu kullanıcı dostu bir şekilde gösterme
     if prediction[0] == 0:
