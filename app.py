@@ -1,33 +1,27 @@
 import streamlit as st
 import pandas as pd
+
 import joblib
+
 import numpy as np
+
 from prometheus_client import Counter, Histogram, start_http_server, REGISTRY
 import time
 import socket
-
-
-from prometheus_client import Counter, Histogram, start_http_server, REGISTRY
-import time
 import os
 
-from prometheus_client import Counter, Histogram, start_http_server, REGISTRY
-import time
-import os
 
-# Özel metrik isimlerini tanımla
 METRIC_NAMES = ['diabetes_prediction_requests_total', 'diabetes_prediction_duration_seconds']
 
-# Mevcut metrikleri temizle (sadece bizim tanımladığımız metrikler)
 for name in list(REGISTRY._names_to_collectors.keys()):
     if name in METRIC_NAMES:
         collector = REGISTRY._names_to_collectors[name]
         REGISTRY.unregister(collector)
 
-# Kubernetes ortamında çalışıyorsa Prometheus’u başlat
+
 if os.getenv('KUBERNETES_SERVICE_HOST'):
     print("Kubernetes ortamında çalışıyorum, Prometheus başlatılıyor.")
-    start_http_server(8001)  # Kubernetes’te sabit port
+    start_http_server(8001) 
 else:
     print("Yerel ortamda çalışıyorum, Prometheus başlatılmadı.")
 
